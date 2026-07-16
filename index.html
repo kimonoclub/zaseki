@@ -103,7 +103,7 @@
         /* 教室レイアウトのスタイル */
         .classroom-map {
             margin-top: 20px;
-            overflow-x: auto; /* スマホではみ出た場合にスクロール可能に */
+            overflow-x: auto; /* スマホ用スクロール対応 */
         }
 
         .blackboard {
@@ -127,24 +127,21 @@
         }
 
         /* 
-           3つの机ブロック ＋ 2つの通路 = 5つのグリッドカラム
-           左机ブロック(1fr) ➔ 通路(12px) ➔ 中央机ブロック(1fr) ➔ 通路(12px) ➔ 右机ブロック(1fr)
+           左右対称：左机ブロック ➔ 通路 ➔ 中央机ブロック ➔ 通路 ➔ 右机ブロック
         */
         .seating-grid {
             display: grid;
             grid-template-columns: 1fr 15px 1fr 15px 1fr;
-            gap: 12px 0; /* 行間は12px、列間は通路で制御するため0 */
+            gap: 12px 0;
             margin-bottom: 25px;
-            min-width: 450px; /* レイアウト崩れ防止 */
+            min-width: 450px;
         }
 
-        /* 通路用の空要素 */
         .aisle {
-            grid-row: span 11; /* 11行分ぶち抜き */
+            grid-row: span 11;
             background-color: transparent;
         }
 
-        /* 二人が座る「長い机」のコンテナ */
         .desk {
             background-color: var(--desk-color);
             border: 1px dashed #cbd5e1;
@@ -156,13 +153,12 @@
             gap: 8px;
         }
 
-        /* 机の左右の座席 */
         .seat {
             background-color: #ffffff;
             border: 1px solid #94a3b8;
             border-radius: 4px;
             flex: 1;
-            aspect-ratio: 1.2; /* 少し横長にすることで机の端感を出します */
+            aspect-ratio: 1.2;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -173,7 +169,6 @@
             position: relative;
         }
 
-        /* 左右位置を示す極小ラベル（L/R） */
         .seat::after {
             content: attr(data-position);
             font-size: 0.55rem;
@@ -181,7 +176,6 @@
             margin-top: 1px;
         }
 
-        /* ハイライト（検索でヒットした席） */
         .seat.highlight {
             background-color: var(--accent-color);
             border-color: #eab308;
@@ -246,9 +240,9 @@
                 <div class="blackboard">黒 板</div>
                 <div class="podium">教卓</div>
                 
-                <!-- 座席表（上部が前方、下部が後方。通路と長い机を再現） -->
+                <!-- 座席表 -->
                 <div class="seating-grid" id="seating-grid-container">
-                    <!-- JavaScriptで動的に席と通路を生成します -->
+                    <!-- JavaScriptで動的に席と通路を生成 -->
                 </div>
                 
                 <div class="rear-label">―― 教室後方（出入り口側） ――</div>
@@ -378,18 +372,18 @@
         return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
     }
 
-    // ★ 180度反転 ＋ 3つのブロック（2列・通路・2列・通路・2列） ➔ 机の両端の表現
+    // ★【左右反転】左ブロックに若い番号（1〜22）、右ブロックに大きな番号（45〜66）をマッピング
     function buildSeatingGrid(highlightSeatNum) {
         const container = document.getElementById('seating-grid-container');
         container.innerHTML = "";
 
-        // R101講義室の完全な行（最前列 1 行目 から 最後列 11 行目までをループ）
+        // 行ループ（最前列 1 行目 から 最後列 11 行目まで）
         for (let rowIdx = 1; rowIdx <= 11; rowIdx++) {
             
-            // --- 【ブロック 1: 左側の机（座席番号56〜66 と 45〜55）】 ---
-            const leftSeat = 56 + (rowIdx - 1);  // 最前列は56, 最後列は66
-            const rightSeat1 = 45 + (rowIdx - 1); // 最前列は45, 最後列は55
-            createDesk(container, leftSeat, rightSeat1, highlightSeatNum);
+            // --- 【ブロック 1: 左側の机（1〜11番 と 12〜22番）】 ---
+            const leftSeat1 = 1 + (rowIdx - 1);   // 最前列は1, 最後列は11
+            const rightSeat1 = 12 + (rowIdx - 1); // 最前列は12, 最後列は22[cite: 7]
+            createDesk(container, leftSeat1, rightSeat1, highlightSeatNum);
 
             // --- 【通路 1】 ---
             if (rowIdx === 1) {
@@ -398,9 +392,9 @@
                 container.appendChild(aisle);
             }
 
-            // --- 【ブロック 2: 中央の机（座席番号34〜44 と 23〜33）】 ---
-            const leftSeat2 = 34 + (rowIdx - 1);  // 最前列は34, 最後列は44
-            const rightSeat2 = 23 + (rowIdx - 1); // 最前列は23, 最後列は33
+            // --- 【ブロック 2: 中央の机（23〜33番 と 34〜44番）】 ---
+            const leftSeat2 = 23 + (rowIdx - 1);  // 最前列は23, 最後列は33[cite: 7]
+            const rightSeat2 = 34 + (rowIdx - 1); // 最前列は34, 最後列は44[cite: 7]
             createDesk(container, leftSeat2, rightSeat2, highlightSeatNum);
 
             // --- 【通路 2】 ---
@@ -410,9 +404,9 @@
                 container.appendChild(aisle);
             }
 
-            // --- 【ブロック 3: 右側の机（座席番号12〜22 と 1〜11）】 ---
-            const leftSeat3 = 12 + (rowIdx - 1);  // 最前列は12, 最後列は22
-            const rightSeat3 = 1 + (rowIdx - 1);   // 最前列は1, 最後列は11
+            // --- 【ブロック 3: 右側の机（45〜55番 と 56〜66番）】 ---
+            const leftSeat3 = 45 + (rowIdx - 1);  // 最前列は45, 最後列は55[cite: 7]
+            const rightSeat3 = 56 + (rowIdx - 1); // 最前列は56, 最後列は66[cite: 7]
             createDesk(container, leftSeat3, rightSeat3, highlightSeatNum);
         }
     }
@@ -422,7 +416,7 @@
         const deskDiv = document.createElement('div');
         deskDiv.className = 'desk';
 
-        // 左端の席
+        // 左側の席
         const seatL = document.createElement('div');
         seatL.className = 'seat';
         seatL.innerText = leftSeatNum;
@@ -432,7 +426,7 @@
             seatL.innerText = "★" + leftSeatNum;
         }
 
-        // 右端の席
+        // 右側の席
         const seatR = document.createElement('div');
         seatR.className = 'seat';
         seatR.innerText = rightSeatNum;
@@ -442,7 +436,6 @@
             seatR.innerText = "★" + rightSeatNum;
         }
 
-        // 机に席を合体
         deskDiv.appendChild(seatL);
         deskDiv.appendChild(seatR);
         container.appendChild(deskDiv);
