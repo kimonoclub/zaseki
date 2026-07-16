@@ -10,6 +10,7 @@
             --accent-color: #f1c40f;
             --bg-color: #f8f9fa;
             --card-color: #ffffff;
+            --desk-color: #e2e8f0;
         }
 
         body {
@@ -26,8 +27,8 @@
 
         .container {
             width: 100%;
-            max-width: 600px;
-            padding: 20px;
+            max-width: 650px;
+            padding: 15px;
             box-sizing: border-box;
         }
 
@@ -35,7 +36,7 @@
             background-color: var(--card-color);
             border-radius: 12px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-            padding: 30px 20px;
+            padding: 30px 15px;
             text-align: center;
         }
 
@@ -102,6 +103,7 @@
         /* 教室レイアウトのスタイル */
         .classroom-map {
             margin-top: 20px;
+            overflow-x: auto; /* スマホではみ出た場合にスクロール可能に */
         }
 
         .blackboard {
@@ -124,40 +126,78 @@
             border-radius: 4px;
         }
 
-        /* 6列×11行の座席グリッド設定 */
+        /* 
+           3つの机ブロック ＋ 2つの通路 = 5つのグリッドカラム
+           左机ブロック(1fr) ➔ 通路(12px) ➔ 中央机ブロック(1fr) ➔ 通路(12px) ➔ 右机ブロック(1fr)
+        */
         .seating-grid {
             display: grid;
-            grid-template-columns: repeat(6, 1fr);
-            gap: 6px;
+            grid-template-columns: 1fr 15px 1fr 15px 1fr;
+            gap: 12px 0; /* 行間は12px、列間は通路で制御するため0 */
             margin-bottom: 25px;
+            min-width: 450px; /* レイアウト崩れ防止 */
         }
 
-        .seat {
-            background-color: #ecf0f1;
-            border: 1px solid #bdc3c7;
-            border-radius: 4px;
-            aspect-ratio: 1;
+        /* 通路用の空要素 */
+        .aisle {
+            grid-row: span 11; /* 11行分ぶち抜き */
+            background-color: transparent;
+        }
+
+        /* 二人が座る「長い机」のコンテナ */
+        .desk {
+            background-color: var(--desk-color);
+            border: 1px dashed #cbd5e1;
+            border-radius: 6px;
+            padding: 4px;
             display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* 机の左右の座席 */
+        .seat {
+            background-color: #ffffff;
+            border: 1px solid #94a3b8;
+            border-radius: 4px;
+            flex: 1;
+            aspect-ratio: 1.2; /* 少し横長にすることで机の端感を出します */
+            display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
             font-size: 0.75rem;
             font-weight: bold;
-            color: #7f8c8d;
+            color: #475569;
             position: relative;
         }
 
+        /* 左右位置を示す極小ラベル（L/R） */
+        .seat::after {
+            content: attr(data-position);
+            font-size: 0.55rem;
+            color: #94a3b8;
+            margin-top: 1px;
+        }
+
+        /* ハイライト（検索でヒットした席） */
         .seat.highlight {
             background-color: var(--accent-color);
-            border-color: #f39c12;
-            color: #2c3e50;
+            border-color: #eab308;
+            color: #1e293b;
             box-shadow: 0 0 12px var(--accent-color);
             animation: pulse 1.5s infinite;
             z-index: 10;
         }
 
+        .seat.highlight::after {
+            color: #854d0e;
+        }
+
         @keyframes pulse {
             0% { transform: scale(1); }
-            50% { transform: scale(1.1); box-shadow: 0 0 18px #f39c12; }
+            50% { transform: scale(1.08); box-shadow: 0 0 16px #eab308; }
             100% { transform: scale(1); }
         }
 
@@ -178,7 +218,7 @@
 
 <div class="container">
     <div class="card">
-        <!-- 1. 授業選択画面 (Root) -->
+        <!-- 1. 授業選択画面 -->
         <div id="view-class-select">
             <h1>定期試験 座席検索</h1>
             <p class="subtitle">座席を確認したい授業を選択してください。</p>
@@ -206,9 +246,9 @@
                 <div class="blackboard">黒 板</div>
                 <div class="podium">教卓</div>
                 
-                <!-- 座席表（上部が前方、下部が後方） -->
+                <!-- 座席表（上部が前方、下部が後方。通路と長い机を再現） -->
                 <div class="seating-grid" id="seating-grid-container">
-                    <!-- JavaScriptで全66席を動的生成します -->
+                    <!-- JavaScriptで動的に席と通路を生成します -->
                 </div>
                 
                 <div class="rear-label">―― 教室後方（出入り口側） ――</div>
@@ -220,7 +260,6 @@
 </div>
 
 <script>
-    // 状態管理
     let selectedClassName = "";
     
     // 【完全版】心理学入門の全66名分の暗号データベース
@@ -261,7 +300,7 @@
             "c114f0ffd2e9b71fb0c22a256504d9de3ccdfeb841e7b77307b91dbb0cc14195": 33,
             "6cf1addc8579843cdc4d6bacbc1185d0f705a40a5962e84d1e732ab92145a78e": 34,
             "39b92d80cdcd39e2ae45006b0b1023fc8db1368efc0577eeb03cddaef392ddef": 35,
-            "cc398075d81e5ee629819f0873f0e4d489dd288b1d8821737ee201f225c93288": 36, // ★202456048（36番）を完全収録
+            "cc398075d81e5ee629819f0873f0e4d489dd288b1d8821737ee201f225c93288": 36, // 202456048 = 36番
             "975edcea7610ff67d974e90f3ab371a188f905c014dcb636af2602adc0d1105f": 37,
             "d12523196246ee62ff045980101939247299bdf1c3636b88f556a7ce7832545e": 38,
             "adaf544472d788daffcc74824f9dc5513f54bbf71dbcdbf19cea4a01e0157d5f": 39,
@@ -297,7 +336,6 @@
         "発達心理学": {}
     };
 
-    // 画面遷移：授業選択 ➔ 入力画面
     function selectClass(className) {
         selectedClassName = className;
         document.getElementById('view-class-select').classList.add('hidden');
@@ -317,7 +355,6 @@
         document.getElementById('view-input').classList.remove('hidden');
     }
 
-    // エラーメッセージ表示
     function showError(msg) {
         const err = document.getElementById('error-container');
         err.innerHTML = msg;
@@ -328,14 +365,12 @@
         document.getElementById('error-container').classList.add('hidden');
     }
 
-    // 全角英数字を半角に変換するユーティリティ
     function toHalfWidth(str) {
         return str.replace(/[Ａ-Ｚａ-ｚ０-９]/g, function(s) {
             return String.fromCharCode(s.charCodeAt(0) - 0xFEE0);
-        }).replace(/[-－ー\s]/g, ""); // ハイフンやスペースも自動除去
+        }).replace(/[-－ー\s]/g, "");
     }
 
-    // SHA-256 ハッシュ値を計算する関数 (ブラウザ標準のCrypto APIを使用)
     async function sha256(message) {
         const msgBuffer = new TextEncoder().encode(message);
         const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
@@ -343,65 +378,98 @@
         return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
     }
 
-    // 座席グリッド（6列×11行 = 66席）を生成
+    // ★ 180度反転 ＋ 3つのブロック（2列・通路・2列・通路・2列） ➔ 机の両端の表現
     function buildSeatingGrid(highlightSeatNum) {
         const container = document.getElementById('seating-grid-container');
         container.innerHTML = "";
 
-        // 教室 R101 のレイアウト再現：
-        // 1行目(一番後ろ)から11行目(一番前)まで。
-        // 各行には 66〜56(左列)から11〜1(右列)までの座席が横に並びます。
-        for (let rowIdx = 0; rowIdx < 11; rowIdx++) {
-            for (let colIdx = 0; colIdx < 6; colIdx++) {
-                const startNum = 66 - (colIdx * 11);
-                const seatNum = startNum - rowIdx;
+        // R101講義室の完全な行（最前列 1 行目 から 最後列 11 行目までをループ）
+        for (let rowIdx = 1; rowIdx <= 11; rowIdx++) {
+            
+            // --- 【ブロック 1: 左側の机（座席番号56〜66 と 45〜55）】 ---
+            const leftSeat = 56 + (rowIdx - 1);  // 最前列は56, 最後列は66
+            const rightSeat1 = 45 + (rowIdx - 1); // 最前列は45, 最後列は55
+            createDesk(container, leftSeat, rightSeat1, highlightSeatNum);
 
-                const seatDiv = document.createElement('div');
-                seatDiv.className = 'seat';
-                seatDiv.innerText = seatNum;
-
-                // もし検索した座席番号であれば、黄色く強調
-                if (seatNum === highlightSeatNum) {
-                    seatDiv.className = 'seat highlight';
-                    seatDiv.innerText = "★" + seatNum;
-                }
-
-                container.appendChild(seatDiv);
+            // --- 【通路 1】 ---
+            if (rowIdx === 1) {
+                const aisle = document.createElement('div');
+                aisle.className = 'aisle';
+                container.appendChild(aisle);
             }
+
+            // --- 【ブロック 2: 中央の机（座席番号34〜44 と 23〜33）】 ---
+            const leftSeat2 = 34 + (rowIdx - 1);  // 最前列は34, 最後列は44
+            const rightSeat2 = 23 + (rowIdx - 1); // 最前列は23, 最後列は33
+            createDesk(container, leftSeat2, rightSeat2, highlightSeatNum);
+
+            // --- 【通路 2】 ---
+            if (rowIdx === 1) {
+                const aisle = document.createElement('div');
+                aisle.className = 'aisle';
+                container.appendChild(aisle);
+            }
+
+            // --- 【ブロック 3: 右側の机（座席番号12〜22 と 1〜11）】 ---
+            const leftSeat3 = 12 + (rowIdx - 1);  // 最前列は12, 最後列は22
+            const rightSeat3 = 1 + (rowIdx - 1);   // 最前列は1, 最後列は11
+            createDesk(container, leftSeat3, rightSeat3, highlightSeatNum);
         }
     }
 
-    // 検索処理
+    // 二人が座る「長い机」を1台生成する関数
+    function createDesk(container, leftSeatNum, rightSeatNum, highlightSeatNum) {
+        const deskDiv = document.createElement('div');
+        deskDiv.className = 'desk';
+
+        // 左端の席
+        const seatL = document.createElement('div');
+        seatL.className = 'seat';
+        seatL.innerText = leftSeatNum;
+        seatL.setAttribute('data-position', '左端');
+        if (leftSeatNum === highlightSeatNum) {
+            seatL.className = 'seat highlight';
+            seatL.innerText = "★" + leftSeatNum;
+        }
+
+        // 右端の席
+        const seatR = document.createElement('div');
+        seatR.className = 'seat';
+        seatR.innerText = rightSeatNum;
+        seatR.setAttribute('data-position', '右端');
+        if (rightSeatNum === highlightSeatNum) {
+            seatR.className = 'seat highlight';
+            seatR.innerText = "★" + rightSeatNum;
+        }
+
+        // 机に席を合体
+        deskDiv.appendChild(seatL);
+        deskDiv.appendChild(seatR);
+        container.appendChild(deskDiv);
+    }
+
     async function searchSeat() {
         hideError();
         let inputVal = document.getElementById('student-id-input').value;
-        
-        // 1. 入力値のクリーニング（全角➔半角、スペース・ハイフンの除去）
         inputVal = toHalfWidth(inputVal);
 
-        // 2. 入力バリデーション
         if (!/^\d{9}$/.test(inputVal)) {
             showError("学籍番号は9桁の半角数字で入力してください。<br>例: 202417001");
             return;
         }
 
-        // 3. 入力された学籍番号をSHA-256でハッシュ化
         const inputHash = await sha256(inputVal);
-
-        // 4. 選択された授業のデータベースから検索
         const classDb = seatDatabase[selectedClassName];
         const assignedSeat = classDb ? classDb[inputHash] : null;
 
         if (assignedSeat) {
-            // 見つかった場合：座席表を表示して強調
             document.getElementById('view-input').classList.add('hidden');
             document.getElementById('view-map').classList.remove('hidden');
             document.getElementById('map-title').innerText = selectedClassName + " 座席位置";
-            document.getElementById('seat-result-text').innerHTML = `あなたの座席番号は <strong>${assignedSeat}番</strong> です。<br>黄色く光っている場所を確認してください。`;
+            document.getElementById('seat-result-text').innerHTML = `あなたの座席番号は <strong>${assignedSeat}番</strong> です。<br>机の両端の、黄色く光っている場所を確認してください。`;
             
             buildSeatingGrid(assignedSeat);
         } else {
-            // 見つからない場合
             showError("入力された学籍番号は、この授業の履修生名簿に含まれていません。<br>間違いがない場合は、担当教員に相談してください。");
         }
     }
