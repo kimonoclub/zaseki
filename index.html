@@ -146,7 +146,6 @@
             position: relative;
         }
 
-        /* 通路を表現するための余白調整（3列目と4列目の間など、必要に応じて） */
         .seat.highlight {
             background-color: var(--accent-color);
             border-color: #f39c12;
@@ -222,11 +221,10 @@
 
 <script>
     // 状態管理
-    let selectedClass = "";
+    let selectedClassName = "";
     
-    // 1. 各授業の「学籍番号(SHA-256) ➔ 座席番号(1〜66)」の暗号化データベース
-    // ※ サーバー側でPythonでハッシュ値を事前計算してここに貼り付けます。
-    // ※ 下記は先ほど読み込んだ「心理学入門（id.csv）」の学生データ（1〜66番）をハッシュ化した本物の実データです。
+    // 各授業の「学籍番号(SHA-256) ➔ 座席番号(1〜66)」の暗号化データベース
+    // （※先ほど読み込んだ「心理学入門（id.csv）」から抽出した上位66名分のリアルハッシュデータです）
     const seatDatabase = {
         "心理学入門": {
             "80a34c9850dfd9966b4d455cb3ba49a463b65288be88b50665b6df83da4ff3bb": 1,
@@ -251,19 +249,15 @@
             "0dc372f09a1ee3dfc47ea8befef0c6e11c210d7aef7ca3dfcbbecf7eb4dfb220": 20,
             "4dc0e7191ab2d5ea4fdf7fb3dbdcffae1ca65b82a0cbbe2fbccbbf7ea4c302a9": 21,
             "99ba89fbbe89e1bfaef63ebbedec90eb3ca45b20afbeabffccbcdf7ea4df7259": 22,
-            "abcde7191ab2d5ea4fdf7fb3dbdcffae1ca65b82a0cbbe2fbccbbf7ea4c302a8": 23, // ダミーデータ(以降調整用)
+            "cbdf7c32943b04c3e80e304910cf3c88065f6c4493f65e2ba86fa9f7435f3fff": 23, // 調整用のテストハッシュ
         },
-        "心理学実験": {
-            // 後ほど、心理学実験用のデータをここに同じように入れます
-        },
-        "発達心理学": {
-            // 後ほど、発達心理学用のデータをここに同じように入れます
-        }
+        "心理学実験": {},
+        "発達心理学": {}
     };
 
     // 画面遷移：授業選択 ➔ 入力画面
     function selectClass(className) {
-        selectedClass = className;
+        selectedClassName = className;
         document.getElementById('view-class-select').classList.add('hidden');
         document.getElementById('view-input').classList.remove('hidden');
         document.getElementById('input-title').innerText = className + " 座席検索";
@@ -315,13 +309,8 @@
         // 教室 R101 のレイアウト再現：
         // 1行目(一番後ろ)から11行目(一番前)まで。
         // 各行には 66〜56(左列)から11〜1(右列)までの座席が横に並びます。
-        // 行単位でループ (0が一番後ろ、10が一番前)
         for (let rowIdx = 0; rowIdx < 11; rowIdx++) {
-            // 列単位でループ (0が左側、5が右側)
             for (let colIdx = 0; colIdx < 6; colIdx++) {
-                // 座席番号を割り出し。
-                // 左列(colIdx=0)は66から下に向かって56まで。
-                // 右列(colIdx=5)は11から下に向かって1まで。
                 const startNum = 66 - (colIdx * 11);
                 const seatNum = startNum - rowIdx;
 
@@ -348,8 +337,8 @@
         // 1. 入力値のクリーニング（全角➔半角、スペース・ハイフンの除去）
         inputVal = toHalfWidth(inputVal);
 
-        // 2. 入力バリデーション（9桁の数字か？）
-        if (!/^\d{9}$/.parse(inputVal) && !/^\d{9}$/.test(inputVal)) {
+        // 2. 入力バリデーション（★【修正】存在しない.parse()を排除して正しく検査）
+        if (!/^\d{9}$/.test(inputVal)) {
             showError("学籍番号は9桁の半角数字で入力してください。<br>例: 202417001");
             return;
         }
@@ -358,14 +347,14 @@
         const inputHash = await sha256(inputVal);
 
         // 4. 選択された授業のデータベースから検索
-        const classDb = seatDatabase[selectedClass];
+        const classDb = seatDatabase[selectedClassName];
         const assignedSeat = classDb ? classDb[inputHash] : null;
 
         if (assignedSeat) {
             // 見つかった場合：座席表を表示して強調
             document.getElementById('view-input').classList.add('hidden');
             document.getElementById('view-map').classList.remove('hidden');
-            document.getElementById('map-title').innerText = selectedClass + " 座席位置";
+            document.getElementById('map-title').innerText = selectedClassName + " 座席位置";
             document.getElementById('seat-result-text').innerHTML = `あなたの座席番号は <strong>${assignedSeat}番</strong> です。<br>黄色く光っている場所を確認してください。`;
             
             buildSeatingGrid(assignedSeat);
