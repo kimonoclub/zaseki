@@ -51,6 +51,17 @@
             margin-bottom: 30px;
         }
 
+        .room-info {
+            display: inline-block;
+            background-color: #e2e8f0;
+            color: #334155;
+            padding: 4px 12px;
+            border-radius: 16px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+
         .btn {
             display: block;
             width: 100%;
@@ -103,7 +114,7 @@
         /* 教室レイアウトのスタイル */
         .classroom-map {
             margin-top: 20px;
-            overflow-x: auto; /* スマホ用スクロール対応 */
+            overflow-x: auto;
         }
 
         .blackboard {
@@ -126,10 +137,8 @@
             border-radius: 4px;
         }
 
-        /* 
-           左右対称：左机ブロック ➔ 通路 ➔ 中央机ブロック ➔ 通路 ➔ 右机ブロック
-        */
-        .seating-grid {
+        /* 標準66席レイアウト（3ブロック） */
+        .seating-grid-66 {
             display: grid;
             grid-template-columns: 1fr 15px 1fr 15px 1fr;
             gap: 12px 0;
@@ -137,8 +146,22 @@
             min-width: 450px;
         }
 
-        .aisle {
+        /* A411教室レイアウト（長机2ブロック ＋ 中央通路） */
+        .seating-grid-a411 {
+            display: grid;
+            grid-template-columns: 1fr 25px 1fr;
+            gap: 12px 0;
+            margin-bottom: 25px;
+            min-width: 380px;
+        }
+
+        .aisle-66 {
             grid-row: span 11;
+            background-color: transparent;
+        }
+
+        .aisle-a411 {
+            grid-row: span 9;
             background-color: transparent;
         }
 
@@ -224,8 +247,9 @@
         <!-- 2. 学籍番号入力画面 -->
         <div id="view-input" class="hidden">
             <h1 id="input-title">授業名</h1>
+            <div id="room-badge" class="room-info">教室: A411</div>
             <p class="subtitle">9桁の学籍番号を半角数字で正確に入力してください。</p>
-            <input type="text" id="student-id-input" placeholder="例: 202417001" maxlength="9" pattern="\d*">
+            <input type="text" id="student-id-input" placeholder="例: 202423029" maxlength="9" pattern="\d*">
             <div id="error-container" class="error-msg hidden"></div>
             <button class="btn" onclick="searchSeat()">座席を検索する</button>
             <button class="btn btn-secondary" onclick="goBackToClassSelect()">授業選択に戻る</button>
@@ -240,10 +264,8 @@
                 <div class="blackboard">黒 板</div>
                 <div class="podium">教卓</div>
                 
-                <!-- 座席表 -->
-                <div class="seating-grid" id="seating-grid-container">
-                    <!-- JavaScriptで動的に席と通路を生成 -->
-                </div>
+                <!-- 座席表グリッド -->
+                <div id="seating-grid-container"></div>
                 
                 <div class="rear-label">―― 教室後方（出入り口側） ――</div>
             </div>
@@ -256,7 +278,14 @@
 <script>
     let selectedClassName = "";
     
-    // 【完全版】心理学入門の全66名分の暗号データベース
+    // 各授業の教室設定
+    const roomConfig = {
+        "心理学入門": { roomName: "大講義室", layoutType: "standard66" },
+        "心理学実験": { roomName: "実験室", layoutType: "standard66" },
+        "発達心理学": { roomName: "A411教室", layoutType: "a411" }
+    };
+
+    // 暗号化データベース (SHA-256)
     const seatDatabase = {
         "心理学入門": {
             "80a34c98500bc3f9e7163e4be5d3ae46aaa8caeb5ba435702d018b5a4f060638": 1,
@@ -294,7 +323,7 @@
             "c114f0ffd2e9b71fb0c22a256504d9de3ccdfeb841e7b77307b91dbb0cc14195": 33,
             "6cf1addc8579843cdc4d6bacbc1185d0f705a40a5962e84d1e732ab92145a78e": 34,
             "39b92d80cdcd39e2ae45006b0b1023fc8db1368efc0577eeb03cddaef392ddef": 35,
-            "cc398075d81e5ee629819f0873f0e4d489dd288b1d8821737ee201f225c93288": 36, // 202456048 = 36番
+            "cc398075d81e5ee629819f0873f0e4d489dd288b1d8821737ee201f225c93288": 36,
             "975edcea7610ff67d974e90f3ab371a188f905c014dcb636af2602adc0d1105f": 37,
             "d12523196246ee62ff045980101939247299bdf1c3636b88f556a7ce7832545e": 38,
             "adaf544472d788daffcc74824f9dc5513f54bbf71dbcdbf19cea4a01e0157d5f": 39,
@@ -324,17 +353,56 @@
             "cb79f24a998490660ecd5e9a40c378a2f5d7706056d0c4c9b7378670c6f8e7f6": 63,
             "60f1085f38b76066389cad04940098c3045bcd52d07df073c4709f170ea99200": 64,
             "dfc134e5e3f85c51b3969d618f9adb791042452f95ca19389b55e8d3df1082b9": 65,
-            "593aab8f5bc848908815abae7d1ed9bff50d5f1a79dbd2fa34a731b55547d8f4": 66,
+            "593aab8f5bc848908815abae7d1ed9bff50d5f1a79dbd2fa34a731b55547d8f4": 66
         },
         "心理学実験": {},
-        "発達心理学": {}
+        "発達心理学": {
+            "2d720604c65a2962f29dd53a4825138dbf5423dd6695b34918986564ed2dca24": 1,
+            "b3b66336d207b9b9ad62ec923b5a9e52fc883ed6438b18bb39444ae32d0e23b6": 2,
+            "34905f2e8148e5c8adc016fe60af89f5334112d234b4df62b0df9219b70c53aa": 3,
+            "6aba53a3bbf9fe9c788d7e609007135c8fd4c0f6c2ad2d5f18ccb688e371c873": 4,
+            "598500825942569aa57c5b8b597cc4496b208f486cdcb6a0a92b167d60228c36": 5,
+            "be456572959741c4bb677c2fc0cf3ac3713c02919ddb7306ee44c79d568edd68": 6,
+            "307f7c6a49148d74a6ee8788e5ef1e50581ffbc29e2fb160f563d57d4beea5a8": 7,
+            "801d253729f74dd1b8cbbc2ab7fa82e7d6c037b3f12898216541a100e158e7f7": 8,
+            "daa887a474e23a49240caad5ecac27bfcf0f8ce6b982cb5fdd6cf42e1d11f1ed": 9,
+            "3f98f36f70e7b682328875db724376424063ef94783abeb9ce5231a49c94cbf1": 10,
+            "1bd8a4efcb05445e4b46f5f17ac8d05b78ac8b73c124923c97cf179110991846": 11,
+            "77b9f4b77d678dbd8c9cf7ebaa9af517200238ac1c72def2921664a7b1bf7c2b": 12,
+            "b416c7ba6b1d0eea949533be61afd64472bac3b270a50539dd09802fc8608570": 13,
+            "ca44be4f50c1c60ee53e40690e94cd04f34986fb648530e20e40d1241ee59970": 14,
+            "87bd058f3c619550fc6e936e644b2485cd5fd7ff9fb44c3cbdee18deeadf9886": 15,
+            "db574e7dcaee7d07e175012fb1ecaa608d480845d4e16dbf3c10159213a4baac": 16,
+            "043d2e9c5275e2bfd53865dae61ce85fe8add71cb65200cd23b2047fa49ed842": 17,
+            "d3477cff47bcdab555b2cf7b7638ba734c7031e9a9f1590059f9533b5b82c35f": 18,
+            "8ad267732014eef0d11fe1ba0f2df74dbdedd50726e1b36bcb9868bc569010a0": 19,
+            "dfa946db6f77dd9f615323a343edc63361d07f697efb406240ade9ccaaf6927e": 20,
+            "53faddba00200bb38a039a3ceccbc3f679dbb13607fbd2cd514c552f0c3e6fc4": 21,
+            "73b030c6be1e23c14f526351465b0eaf1afb3e75e7cd4e9e6f465c4c578e820b": 22,
+            "49e5b6b2d2479b2542d898e8ebaaffda3d13ea634daa0c56d89e88f79e282a76": 23,
+            "26d43149ec6bd0da332b0e763ac84e5aca4559a8614d801befbc57e8b4b9a4e0": 24,
+            "22342799a212591dfb490434e853aade845c0faefb7c216ad1ec1d917e112ba1": 25,
+            "9bbacecf582b98bc276fe4baaa6e9c6fd34433bd6e4da7fe1994287cdf156a85": 26,
+            "56056108add0ea02ae03f71b7d718b3bd8285eea6c1c479ac7b207e8ef67f68f": 27,
+            "ec863b9e748b2a513f9aeb12a316d0109f7a6c2d9c0e9c8d8e7d08bf08cfc509": 28,
+            "a0af49dccf7a4aece5698f832db8101bbb4e7133d13d0c4b7ef783806b731a6d": 29,
+            "7b222a039aa15538420c1ce576219be38fe01c7dae5407aba53aa5b400a0bf7b": 30,
+            "63f6555f1d737ac7e2aff419c0c427a7b7fa05b2b768d8e2a378be528054fa11": 31,
+            "3f86d0e7f5a1116c142d8114cceba14c4c2520ed98fc8a0d872926fb182723f7": 32,
+            "f531581333e01fa97db9467dfda393b3672706bb7ac66fa6a7c861dd51e428a1": 33,
+            "cfbf37e56e0f3bf0e00266d3184c11710c09e0ce9a199427572610e34c0e79a5": 34,
+            "9cade71c0b1671893e1cb770968b984c47f77208a3923a5ed5d691a7cd5d2e47": 35
+        }
     };
 
     function selectClass(className) {
         selectedClassName = className;
+        const config = roomConfig[className] || { roomName: "教室", layoutType: "standard66" };
+        
         document.getElementById('view-class-select').classList.add('hidden');
         document.getElementById('view-input').classList.remove('hidden');
         document.getElementById('input-title').innerText = className + " 座席検索";
+        document.getElementById('room-badge').innerText = "実施教室: " + config.roomName;
         document.getElementById('student-id-input').value = "";
         hideError();
     }
@@ -372,65 +440,94 @@
         return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
     }
 
-    // ★【左右反転】左ブロックに若い番号（1〜22）、右ブロックに大きな番号（45〜66）をマッピング
+    // 教室レイアウトに応じた座席グリッドの動的生成
     function buildSeatingGrid(highlightSeatNum) {
         const container = document.getElementById('seating-grid-container');
         container.innerHTML = "";
 
-        // 行ループ（最前列 1 行目 から 最後列 11 行目まで）
-        for (let rowIdx = 1; rowIdx <= 11; rowIdx++) {
-            
-            // --- 【ブロック 1: 左側の机（1〜11番 と 12〜22番）】 ---
-            const leftSeat1 = 1 + (rowIdx - 1);   // 最前列は1, 最後列は11
-            const rightSeat1 = 12 + (rowIdx - 1); // 最前列は12, 最後列は22[cite: 7]
-            createDesk(container, leftSeat1, rightSeat1, highlightSeatNum);
+        const config = roomConfig[selectedClassName] || { layoutType: "standard66" };
 
-            // --- 【通路 1】 ---
-            if (rowIdx === 1) {
-                const aisle = document.createElement('div');
-                aisle.className = 'aisle';
-                container.appendChild(aisle);
-            }
-
-            // --- 【ブロック 2: 中央の机（23〜33番 と 34〜44番）】 ---
-            const leftSeat2 = 23 + (rowIdx - 1);  // 最前列は23, 最後列は33[cite: 7]
-            const rightSeat2 = 34 + (rowIdx - 1); // 最前列は34, 最後列は44[cite: 7]
-            createDesk(container, leftSeat2, rightSeat2, highlightSeatNum);
-
-            // --- 【通路 2】 ---
-            if (rowIdx === 1) {
-                const aisle = document.createElement('div');
-                aisle.className = 'aisle';
-                container.appendChild(aisle);
-            }
-
-            // --- 【ブロック 3: 右側の机（45〜55番 と 56〜66番）】 ---
-            const leftSeat3 = 45 + (rowIdx - 1);  // 最前列は45, 最後列は55[cite: 7]
-            const rightSeat3 = 56 + (rowIdx - 1); // 最前列は56, 最後列は66[cite: 7]
-            createDesk(container, leftSeat3, rightSeat3, highlightSeatNum);
+        if (config.layoutType === "a411") {
+            buildA411Grid(container, highlightSeatNum);
+        } else {
+            buildStandard66Grid(container, highlightSeatNum);
         }
     }
 
-    // 二人が座る「長い机」を1台生成する関数
-    function createDesk(container, leftSeatNum, rightSeatNum, highlightSeatNum) {
+    // A411教室レイアウト（長机2ブロック: 左側28-36+19-27、右側10-18+1-9、中央に通路）
+    function buildA411Grid(container, highlightSeatNum) {
+        container.className = "seating-grid-a411";
+
+        for (let rowIdx = 1; rowIdx <= 9; rowIdx++) {
+            const seatLeft = 28 + (rowIdx - 1);     // 左ブロック・左席 (28〜36)
+            const seatMidL = 19 + (rowIdx - 1);     // 左ブロック・右席 (19〜27)
+            const seatMidR = 10 + (rowIdx - 1);     // 右ブロック・左席 (10〜18)
+            const seatRight = 1 + (rowIdx - 1);     // 右ブロック・右席 (1〜9)
+
+            // 左ブロックの長机
+            createDoubleDesk(container, seatLeft, seatMidL, highlightSeatNum);
+
+            // 中央の通路（1行目のみ生成して span 9 で全行貫通）
+            if (rowIdx === 1) {
+                const aisle = document.createElement('div');
+                aisle.className = 'aisle-a411';
+                container.appendChild(aisle);
+            }
+
+            // 右ブロックの長机
+            createDoubleDesk(container, seatMidR, seatRight, highlightSeatNum);
+        }
+    }
+
+    // 標準66席レイアウト（3ブロック×長机）
+    function buildStandard66Grid(container, highlightSeatNum) {
+        container.className = "seating-grid-66";
+
+        for (let rowIdx = 1; rowIdx <= 11; rowIdx++) {
+            const leftSeat1 = 1 + (rowIdx - 1);
+            const rightSeat1 = 12 + (rowIdx - 1);
+            createDoubleDesk(container, leftSeat1, rightSeat1, highlightSeatNum);
+
+            if (rowIdx === 1) {
+                const aisle = document.createElement('div');
+                aisle.className = 'aisle-66';
+                container.appendChild(aisle);
+            }
+
+            const leftSeat2 = 23 + (rowIdx - 1);
+            const rightSeat2 = 34 + (rowIdx - 1);
+            createDoubleDesk(container, leftSeat2, rightSeat2, highlightSeatNum);
+
+            if (rowIdx === 1) {
+                const aisle = document.createElement('div');
+                aisle.className = 'aisle-66';
+                container.appendChild(aisle);
+            }
+
+            const leftSeat3 = 45 + (rowIdx - 1);
+            const rightSeat3 = 56 + (rowIdx - 1);
+            createDoubleDesk(container, leftSeat3, rightSeat3, highlightSeatNum);
+        }
+    }
+
+    // 2人掛け長机の生成（共通関数）
+    function createDoubleDesk(container, leftSeatNum, rightSeatNum, highlightSeatNum) {
         const deskDiv = document.createElement('div');
         deskDiv.className = 'desk';
 
-        // 左側の席
         const seatL = document.createElement('div');
         seatL.className = 'seat';
         seatL.innerText = leftSeatNum;
-        seatL.setAttribute('data-position', '左端');
+        seatL.setAttribute('data-position', '左');
         if (leftSeatNum === highlightSeatNum) {
             seatL.className = 'seat highlight';
             seatL.innerText = "★" + leftSeatNum;
         }
 
-        // 右側の席
         const seatR = document.createElement('div');
         seatR.className = 'seat';
         seatR.innerText = rightSeatNum;
-        seatR.setAttribute('data-position', '右端');
+        seatR.setAttribute('data-position', '右');
         if (rightSeatNum === highlightSeatNum) {
             seatR.className = 'seat highlight';
             seatR.innerText = "★" + rightSeatNum;
@@ -447,7 +544,7 @@
         inputVal = toHalfWidth(inputVal);
 
         if (!/^\d{9}$/.test(inputVal)) {
-            showError("学籍番号は9桁の半角数字で入力してください。<br>例: 202417001");
+            showError("学籍番号は9桁の半角数字で入力してください。<br>例: 202423029");
             return;
         }
 
@@ -456,10 +553,11 @@
         const assignedSeat = classDb ? classDb[inputHash] : null;
 
         if (assignedSeat) {
+            const config = roomConfig[selectedClassName] || { roomName: "教室" };
             document.getElementById('view-input').classList.add('hidden');
             document.getElementById('view-map').classList.remove('hidden');
             document.getElementById('map-title').innerText = selectedClassName + " 座席位置";
-            document.getElementById('seat-result-text').innerHTML = `あなたの座席番号は <strong>${assignedSeat}番</strong> です。<br>机の両端の、黄色く光っている場所を確認してください。`;
+            document.getElementById('seat-result-text').innerHTML = `実施教室: <strong>${config.roomName}</strong><br>あなたの座席番号は <strong>${assignedSeat}番</strong> です。<br>机の左右どちらか、黄色く光っている場所を確認してください。`;
             
             buildSeatingGrid(assignedSeat);
         } else {
